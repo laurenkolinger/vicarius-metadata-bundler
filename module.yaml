@@ -1,0 +1,117 @@
+# ==============================================================================
+# VICARIUS MODULE: metadata_bundler
+# ==============================================================================
+# A meta-tool. Consumes a directory of VICARIUS ``.meta.json`` sidecar files
+# (produced by other modules at artifact-generation time) and emits, for each
+# sidecar, two derived metadata documents:
+#
+#   * ``<basename>.eml.xml`` - EML 2.2.0 XML, regenerated from the sidecar's
+#     embedded descriptor snapshot (plus sidecar-level provenance augmentation).
+#   * ``<basename>.txt``     - a human-readable plain-text quick reference that
+#     is the primary deliverable of this module.
+#
+# The module produces *derived metadata* only; it does not mint new data types,
+# so ``outputs: []`` below is intentional. The artifacts it writes are pinned
+# to the upstream sidecar's descriptor and never to a descriptor of their own.
+# ==============================================================================
+
+name: "metadata_bundler"
+display_name: "Metadata Bundler"
+tags: ["META"]
+hidden: false
+hidden_reason: ""
+version: "1.0.0"
+description: "Bundles a folder of VICARIUS sidecars into EML XML and human-readable plain-text metadata files."
+author: "Lauren K Olinger"
+created: "2026-04-22"
+
+type: "process"
+
+# ------------------------------------------------------------------------------
+# INPUTS
+# ------------------------------------------------------------------------------
+inputs:
+  - name: "sidecar_dir"
+    type: "directory"
+    formats: [".meta.json"]
+    location: "<any path containing *.meta.json sidecars>"
+    required: true
+    description: "Directory of VICARIUS .meta.json sidecar files emitted by upstream modules."
+
+# ------------------------------------------------------------------------------
+# OUTPUTS
+# ------------------------------------------------------------------------------
+# Intentionally empty in the new-contract sense. The bundler's outputs are
+# derived metadata documents (EML XML + plain-text) that describe existing
+# artifacts; they don't introduce new dataset slugs. Per Lauren 2026-04-22:
+# "link them to a placeholder descriptor or leave outputs: [] and add a
+# comment explaining why." We chose the second option.
+outputs: []
+
+# ------------------------------------------------------------------------------
+# PARAMETERS
+# ------------------------------------------------------------------------------
+parameters:
+  - name: "contact"
+    type: "string"
+    default: "LO"
+    required: false
+    description: "Contact identifier printed in the plain-text bundle. Defaults to Lauren's initials; pass your own value to override. Never includes email unless explicitly supplied."
+
+  - name: "notes"
+    type: "string"
+    default: ""
+    required: false
+    description: "Free-form user notes appended beneath the Description section. The entire block is omitted from the plain-text output when empty."
+
+  - name: "format"
+    type: "string"
+    default: "both"
+    required: false
+    description: "Which artifacts to emit per sidecar: txt | eml | both."
+
+  - name: "csv_inspect"
+    type: "boolean"
+    default: false
+    required: false
+    description: "When true, open each sidecar's referenced data file on disk and compute categorical/numerical stats. When false, use sidecar extra.stats if present; else skip stats."
+
+# ------------------------------------------------------------------------------
+# RUNTIME REQUIREMENTS
+# ------------------------------------------------------------------------------
+runtime:
+  python_version: ">=3.10"
+  gpu_required: false
+  tested_os:
+    - "Ubuntu 22.04"
+    - "Ubuntu 24.04"
+  dependencies: "setup_env.sh"
+  estimated_time: "~1 s per sidecar"
+
+# ------------------------------------------------------------------------------
+# CLI SCRIPT INTERFACE
+# ------------------------------------------------------------------------------
+cli:
+  main_script: "scripts/bundle.py"
+  # Invocation:
+  #   python scripts/bundle.py \
+  #     --sidecar-dir <path> --output-dir <path> \
+  #     [--contact LO] [--notes "..."] [--format both|txt|eml] [--csv-inspect]
+
+# ------------------------------------------------------------------------------
+# STUDIES
+# ------------------------------------------------------------------------------
+studies: []
+
+# ------------------------------------------------------------------------------
+# NOTES
+# ------------------------------------------------------------------------------
+notes: |
+  - The plain-text format is the main deliverable; EML XML is produced for
+    archival/interop.
+  - When available, the bundler calls
+    ``_METADATA/sidecar/generate.regenerate_eml_from_sidecar``. If that module
+    is unreachable at runtime, it falls back to
+    ``_METADATA/eml/generate.generate_eml(sidecar['descriptor_snapshot'])``
+    and augments the XML with runtime context manually.
+  - All timestamps rendered in Atlantic Standard Time (UTC-04:00), 24-hour.
